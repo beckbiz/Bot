@@ -1,0 +1,25 @@
+{
+  "default_sources": [
+    "https://feeds.bbci.co.uk/news/technology/rss.xml",
+    "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+    "https://www.theverge.com/rss/index.xml",
+    "https://www.reutersagency.com/feed/?best-topics=technology"
+  ],
+  "supported_categories": [
+    "Technology",
+    "AI",
+    "Politics",
+    "Business",
+    "Science",
+    "Gaming",
+    "World"
+  ],
+  "scheduler": {
+    "collection_interval_minutes": 30,
+    "daily_digest_hour_utc": 7
+  },
+  "limits": {
+    "max_requests_per_minute": 20,
+    "max_tokens_per_day": 120000
+  }
+}
