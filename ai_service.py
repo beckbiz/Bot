@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any
 
@@ -58,7 +59,11 @@ class AIService:
 
     def summarize(self, article_text: str) -> dict[str, Any]:
         if not article_text:
-            return {"summary": "No content extracted.", "category": "World", "importance": 1}
+            return {
+                "summary": "No content extracted.",
+                "category": "World",
+                "importance": 1,
+            }
 
         prompt = PROMPT_TEMPLATE.format(text=article_text[:5000])
         estimated_tokens = max(200, len(prompt) // 4)
@@ -119,9 +124,28 @@ class AIService:
             raw = raw.strip("`")
             raw = raw.replace("json", "", 1).strip()
 
-        parsed = json.loads(raw)
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+            if not match:
+                raise
+            parsed = json.loads(match.group(0))
+
+        summary = str(parsed.get("summary", "")).strip()
+        if isinstance(parsed.get("summary"), list):
+            summary = "\n".join(f"• {str(item).strip()}" for item in parsed["summary"] if str(item).strip())
+
+        category = str(parsed.get("category", "World")).strip() or "World"
+        importance_raw = parsed.get("importance", 1)
+        try:
+            importance = int(float(importance_raw))
+        except (TypeError, ValueError):
+            importance = 1
+
         return {
-            "summary": str(parsed.get("summary", "")).strip(),
-            "category": str(parsed.get("category", "World")).strip(),
-            "importance": max(1, min(10, int(parsed.get("importance", 1)))),
+            "summary": summary or "Summary unavailable.",
+            "category": category,
+            "importance": max(1, min(10, importance)),
         }
+
