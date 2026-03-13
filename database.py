@@ -1,29 +1,14 @@
 """SQLite storage layer for users, sources, articles, summaries, and usage."""
 from __future__ import annotations
 
-import json
 import logging
 import sqlite3
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
 LOGGER = logging.getLogger(__name__)
-
-
-@dataclass
-class Article:
-    id: int
-    title: str
-    url: str
-    source: str
-    published_at: str
-    text: str
-    category: str | None = None
-    importance: int | None = None
-    summary: str | None = None
 
 
 class Database:
@@ -171,6 +156,11 @@ class Database:
             ).fetchall()
             return [row["url"] for row in rows]
 
+    def get_all_sources(self) -> list[str]:
+        with self.connection() as conn:
+            rows = conn.execute("SELECT DISTINCT url FROM sources ORDER BY added_at DESC").fetchall()
+            return [row["url"] for row in rows]
+
     def article_exists(self, url: str) -> bool:
         with self.connection() as conn:
             return (
@@ -198,6 +188,14 @@ class Database:
                 return int(cursor.lastrowid)
             except sqlite3.IntegrityError:
                 return None
+
+    def get_recent_article_meta(self, limit: int = 300) -> list[dict[str, str]]:
+        with self.connection() as conn:
+            rows = conn.execute(
+                "SELECT title, url FROM articles ORDER BY inserted_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [{"title": row["title"], "url": row["url"]} for row in rows]
 
     def upsert_summary(
         self,
