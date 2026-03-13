@@ -65,3 +65,4 @@ class ArticleScraper:
         cleaned = re.sub(r"\s+", " ", text)
         cleaned = re.sub(r"(cookie policy|subscribe now|accept all cookies)", "", cleaned, flags=re.IGNORECASE)
         return cleaned.strip()
+
