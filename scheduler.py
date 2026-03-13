@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
+from typing import Callable
 
 from telegram import Bot
 
@@ -35,21 +36,25 @@ class NewsPipeline:
         self.ranker = ranker
 
     def collect_and_store(self, sources: list[str]) -> int:
-        known = self.db.get_rankable_articles(limit=250)
+        known = self.db.get_recent_article_meta(limit=300)
         inserted = 0
+
         for source in sources:
             articles = self.collector.collect_from_source(source)
             for article in articles:
                 url = article.get("url")
+                title = str(article.get("title", "Untitled"))
                 if not url:
                     continue
                 if self.db.article_exists(url) or self.duplicate_detector.is_duplicate(article, known):
                     continue
+
                 text = self.scraper.extract_text(url)
                 if len(text) < 180:
                     continue
+
                 article_id = self.db.insert_article(
-                    title=str(article.get("title", "Untitled")),
+                    title=title,
                     url=url,
                     source=str(article.get("source", "unknown")),
                     published_at=article.get("published_at"),
@@ -57,7 +62,8 @@ class NewsPipeline:
                 )
                 if article_id:
                     inserted += 1
-                    known.append({"title": article["title"], "url": url})
+                    known.append({"title": title, "url": url})
+
         LOGGER.info("Pipeline inserted %s new articles", inserted)
         return inserted
 
@@ -131,7 +137,7 @@ class DigestService:
 async def run_scheduler(
     pipeline: NewsPipeline,
     digest_service: DigestService,
-    sources: list[str],
+    source_provider: Callable[[], list[str]],
     every_minutes: int,
     daily_digest_hour_utc: int,
 ) -> None:
@@ -141,6 +147,7 @@ async def run_scheduler(
     while True:
         start = datetime.now(timezone.utc)
         try:
+            sources = source_provider()
             pipeline.collect_and_store(sources)
             pipeline.summarize_pending()
             await digest_service.send_digest()
